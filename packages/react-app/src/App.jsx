@@ -1,21 +1,24 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { BrowserRouter, Switch, Route, Link } from "react-router-dom";
+import { CaretUpOutlined, ScanOutlined, SendOutlined } from "@ant-design/icons";
+import QrReader from "react-qr-reader";
 import "antd/dist/antd.css";
 import {  StaticJsonRpcProvider, JsonRpcProvider, Web3Provider,InfuraProvider } from "@ethersproject/providers";
 import "./App.css";
-import { Row, Col, Button, Menu, Alert, Switch as SwitchD } from "antd";
+import { Row, Col, Button, Menu, Alert, Switch as SwitchD, notification, Modal, Input } from "antd";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
+import WalletConnect from "@walletconnect/client";
 import { useUserAddress } from "eth-hooks";
-import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch } from "./components";
-import { useExchangePrice, useGasPrice, useUserProvider, useContractLoader, useContractReader, useEventListener, useBalance, useExternalContractLoader, useOnBlock } from "./hooks";
+import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch, AddressInput } from "./components";
+import { useExchangePrice, useGasPrice, useUserProvider, useContractLoader, useContractReader, useEventListener, useBalance, useExternalContractLoader, useOnBlock, useLocalStorage } from "./hooks";
 import { Transactor } from "./helpers";
 import { formatEther, parseEther } from "@ethersproject/units";
 //import Hints from "./Hints";
 import { Hints, ExampleUI, Subgraph } from "./views"
 import { useThemeSwitcher } from "react-css-theme-switcher";
 import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
-import { CreateTransaction, Transactions, Owners, FrontPage } from "./views"
+import { CreateTransaction, Transactions, Owners, FrontPage, DaiSwap } from "./views"
 
 /*
     Welcome to 🏗 scaffold-eth !
@@ -38,13 +41,15 @@ import { CreateTransaction, Transactions, Owners, FrontPage } from "./views"
 
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS['localhost']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS['rinkeby']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // const poolServerUrl = "https://backend.multisig.holdings:49832/"
 const poolServerUrl = "http://localhost:49832/"
 
 // 😬 Sorry for all the console logging
 const DEBUG = true
+const { confirm } = Modal;
+const { ethers } = require("ethers");
 
 
 // 🛰 providers
@@ -79,11 +84,38 @@ function App(props) {
   /* 💵 This hook will get the price of ETH from 🦄 Uniswap: */
   const price = useExchangePrice(targetNetwork,mainnetProvider);
 
+let scanner;
+let startingAddress = "";
+if (window.location.pathname) {
+  const incoming = window.location.pathname.replace("/", "");
+  if (incoming && ethers.utils.isAddress(incoming)) {
+    startingAddress = incoming;
+    window.history.pushState({}, "", "/");
+  }
+  console.log("startingAddress",startingAddress)
+
+  /* let rawPK
+  if(incomingPK.length===64||incomingPK.length===66){
+    console.log("🔑 Incoming Private Key...");
+    rawPK=incomingPK
+    burnerConfig.privateKey = rawPK
+    window.history.pushState({},"", "/");
+    let currentPrivateKey = window.localStorage.getItem("metaPrivateKey");
+    if(currentPrivateKey && currentPrivateKey!==rawPK){
+      window.localStorage.setItem("metaPrivateKey_backup"+Date.now(),currentPrivateKey);
+    }
+    window.localStorage.setItem("metaPrivateKey",rawPK);
+  } */
+}
+const [walletConnectTx, setWalletConnectTx] = useState();
+const [toAddress, setToAddress] = useLocalStorage("Multisig addy", startingAddress, 120000);
+
   /* 🔥 This hook will get the price of Gas from ⛽️ EtherGasStation */
   const gasPrice = useGasPrice(targetNetwork,"fast");
   // Use your injected provider from 🦊 Metamask or if you don't have it then instantly generate a 🔥 burner wallet.
   const userProvider = useUserProvider(injectedProvider, localProvider);
   const address = useUserAddress(userProvider);
+  
 
   // You can warn the user if you would like them to be on a specific network
   let localChainId = localProvider && localProvider._network && localProvider._network.chainId
@@ -100,6 +132,8 @@ function App(props) {
   // 🏗 scaffold-eth is full of handy hooks like this one to get your balance:
   const yourLocalBalance = useBalance(localProvider, address);
 
+  
+
   // Just plug in different 🛰 providers to get your balance on different chains:
   const yourMainnetBalance = useBalance(mainnetProvider, address);
 
@@ -110,6 +144,199 @@ function App(props) {
   const writeContracts = useContractLoader(userProvider)
 
   const contractName = "MetaMultiSigWallet"
+
+  const [ walletConnectUrl, setWalletConnectUrl ] = useState()
+  const [ connected, setConnected ] = useState()
+
+
+  const [ wallectConnectConnector, setWallectConnectConnector ] = useState()
+
+  useEffect(()=>{
+    //walletConnectUrl
+    if(walletConnectUrl){
+
+      //CLEAR LOCAL STORAGE?!?
+      localStorage.removeItem("walletconnect") // lololol
+
+      console.log(" 📡 Connecting to Wallet Connect....",walletConnectUrl)
+      const connector = new WalletConnect(
+        {
+          // Required
+          uri: walletConnectUrl,
+          // Required
+          clientMeta: {
+            description: "Forkable web wallet for small/quick transactions.",
+            url: "https://punkwallet.io",
+            icons: ["https://punkwallet.io/punk.png"],
+            name: "🧑‍🎤 PunkWallet.io",
+          },
+        }/*,
+        {
+          // Optional
+          url: "<YOUR_PUSH_SERVER_URL>",
+          type: "fcm",
+          token: token,
+          peerMeta: true,
+          language: language,
+        }*/
+      );
+
+      setWallectConnectConnector(connector)
+
+      // Subscribe to session requests
+      connector.on("session_request", (error, payload) => {
+        if (error) {
+          throw error;
+        }
+
+        console.log("SESSION REQUEST")
+        // Handle Session Request
+
+        connector.approveSession({
+          accounts: [                 // required
+            readContracts ? readContracts[contractName].address : readContracts
+          ],
+          chainId: targetNetwork.chainId               // required
+        })
+
+        setConnected(true)
+
+
+        /* payload:
+        {
+          id: 1,
+          jsonrpc: '2.0'.
+          method: 'session_request',
+          params: [{
+            peerId: '15d8b6a3-15bd-493e-9358-111e3a4e6ee4',
+            peerMeta: {
+              name: "WalletConnect Example",
+              description: "Try out WalletConnect v1.0",
+              icons: ["https://example.walletconnect.org/favicon.ico"],
+              url: "https://example.walletconnect.org"
+            }
+          }]
+        }
+        */
+      });
+
+      // Subscribe to call requests
+      connector.on("call_request", async (error, payload) => {
+        if (error) {
+          throw error;
+        }
+
+        console.log("REQUEST PERMISSION TO:",payload,payload.params[0])
+        // Handle Call Request
+        //console.log("SETTING TO",payload.params[0].to)
+
+        //setWalletConnectTx(true)
+
+        //setToAddress(payload.params[0].to)
+        //setData(payload.params[0].data?payload.params[0].data:"0x0000")
+
+        //let bigNumber = ethers.BigNumber.from(payload.params[0].value)
+        //console.log("bigNumber",bigNumber)
+
+        //let newAmount = ethers.utils.formatEther(bigNumber)
+        //console.log("newAmount",newAmount)
+        //if(props.price){
+        //  newAmount = newAmount.div(props.price)
+        //}
+        //setAmount(newAmount)
+
+        /* payload:
+        {
+          id: 1,
+          jsonrpc: '2.0'.
+          method: 'eth_sign',
+          params: [
+            "0xbc28ea04101f03ea7a94c1379bc3ab32e65e62d3",
+            "My email is john@doe.com - 1537836206101"
+          ]
+        }
+        */
+
+        //setWalletModalData({payload:payload,connector: connector})
+
+        confirm({
+            width: "90%",
+            size: "large",
+            title: 'Send Transaction?',
+            icon: <SendOutlined/>,
+            content: <pre>{payload && JSON.stringify(payload.params, null, 2)}</pre>,
+            onOk:async ()=>{
+
+              let result = await userProvider.send(payload.method, payload.params)
+
+              console.log("MSG:",ethers.utils.toUtf8Bytes(msg).toString())
+
+              console.log("payload.params[0]:",payload.params[1])
+              console.log("address:",address)
+
+              let userSigner = userProvider.getSigner()
+              result = await userSigner.signMessage(msg)
+              console.log("RESULT:",result)
+
+
+              connector.approveRequest({
+                id: payload.id,
+                result: result
+              });
+
+              notification.info({
+                message: "Wallet Connect Transaction Sent",
+                description: result.hash,
+                placement: "bottomRight",
+              });
+            },
+            onCancel: ()=>{
+              console.log('Cancel');
+            },
+          });
+
+        //setIsWalletModalVisible(true)
+
+        if(payload.method == "personal_sign"){
+          console.log("SIGNING A MESSAGE!!!")
+
+          const msg = payload.params[0]
+
+
+        }
+
+
+
+
+      });
+
+      connector.on("disconnect", (error, payload) => {
+        if (error) {
+          throw error;
+        }
+        console.log("disconnect")
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 1);
+
+        // Delete connector
+      });
+    }
+  },[ walletConnectUrl ])
+
+  useMemo(() => {
+    if (window.location.pathname) {
+      if (window.location.pathname.indexOf("/wc") >= 0) {
+        console.log("WALLET CONNECT!!!!!",window.location.search)
+        let uri = window.location.search.replace("?uri=","")
+        console.log("WC URI:",uri)
+        setWalletConnectUrl(uri)
+      }
+    }
+  }, [injectedProvider, localProvider]);
+
+  
 
   //📟 Listen for broadcast events
   const executeTransactionEvents = useEventListener(readContracts, contractName, "ExecuteTransaction", localProvider, 1);
@@ -140,6 +367,8 @@ function App(props) {
 
   // keep track of a variable from the contract in the local React state:
   const purpose = useContractReader(readContracts,"YourContract", "purpose")
+
+  
 
   //📟 Listen for broadcast events
   const setPurposeEvents = useEventListener(readContracts, "YourContract", "SetPurpose", localProvider, 1);
@@ -202,7 +431,8 @@ function App(props) {
 
   const withdrawStreamEvents = useEventListener(readContracts, contractName, "Withdraw", localProvider, 1);
   if(DEBUG) console.log("📟 withdrawStreamEvents:",withdrawStreamEvents)
-
+ 
+  
 
   const loadWeb3Modal = useCallback(async () => {
     const provider = await web3Modal.connect();
@@ -236,10 +466,11 @@ function App(props) {
         }}>
           💰 Grab funds from the faucet ⛽️
         </Button>
+        
       </div>
     )
   }
-
+  
   return (
     <div className="App">
 
@@ -261,6 +492,12 @@ function App(props) {
           <Menu.Item key="/pool">
             <Link onClick={()=>{setRoute("/pool")}} to="/pool">Pool</Link>
           </Menu.Item>
+                 <Menu.Item key="/mainnetdai">
+          <Link to="/mainnetdai">Mainnet DAI</Link>
+        </Menu.Item>
+        <Menu.Item key="/swappy">
+          <Link to="/swappy">Swap to Dai</Link>
+        </Menu.Item>
           <Menu.Item key="/debug">
             <Link onClick={()=>{setRoute("/debug")}} to="/debug">Debug</Link>
           </Menu.Item>
@@ -277,6 +514,44 @@ function App(props) {
               mainnetProvider={mainnetProvider}
               blockExplorer={blockExplorer}
             />
+          <AddressInput
+            ensProvider={mainnetProvider}
+            placeholder="to address"
+            disabled={walletConnectTx}
+            value={toAddress}
+            onChange={setToAddress}
+            hoistScanner={toggle => {
+              scanner = toggle;
+            }}
+            walletConnect={(wcLink)=>{
+              setWalletConnectUrl(wcLink)
+              //window.location.replace('/wc?uri='+wcLink);
+            }}
+          />
+          
+          <Button
+          type="primary"
+          shape="circle"
+          style={{backgroundColor:targetNetwork.color,borderColor:targetNetwork.color}}
+          size="large"
+          onClick={() => {
+          scanner(true);
+          }}
+
+          
+        >
+          <ScanOutlined style={{ color: "#FFFFFF" }} />
+        </Button>
+                <Input
+          style={{width:"70%"}}
+          placeholder={"wallet connect url"}
+          value={walletConnectUrl}
+          disabled={connected}
+          onChange={(e)=>{
+            setWalletConnectUrl(e.target.value)
+          }}
+        />{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}
+        
           </Route>
             { /* uncomment for a second contract:
             <Contract
@@ -287,8 +562,8 @@ function App(props) {
               blockExplorer={blockExplorer}
             />
             */ }
-
-            { /* Uncomment to display and interact with an external contract (DAI on mainnet):
+<Route path="/mainnetdai">
+            { /* Uncomment to display and interact with an external contract (DAI on mainnet):*/ }
             <Contract
               name="DAI"
               customContract={mainnetDAIContract}
@@ -297,7 +572,7 @@ function App(props) {
               address={address}
               blockExplorer={blockExplorer}
             />
-            */ }
+           </Route>
           <Route exact path="/owners">
             <Owners
               contractName={contractName}
@@ -316,6 +591,7 @@ function App(props) {
               signaturesRequired={signaturesRequired}
             />
           </Route>
+
           <Route path="/create">
             <CreateTransaction
               poolServerUrl={poolServerUrl}
@@ -401,6 +677,8 @@ function App(props) {
          {faucetHint}
       </div>
 
+      
+
       {/* 🗺 Extra UI like gas price, eth price, faucet, and support: */}
        <div style={{ position: "fixed", textAlign: "left", left: 0, bottom: 20, padding: 10 }}>
          <Row align="middle" gutter={[4, 4]}>
@@ -450,6 +728,7 @@ function App(props) {
 /*
   Web3 modal helps us "connect" external wallets:
 */
+
 const web3Modal = new Web3Modal({
   // network: "mainnet", // optional
   cacheProvider: true, // optional
@@ -462,6 +741,8 @@ const web3Modal = new Web3Modal({
     },
   },
 });
+
+
 
 const logoutOfWeb3Modal = async () => {
   await web3Modal.clearCachedProvider();

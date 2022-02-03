@@ -49,6 +49,7 @@ export default function Owners({contractName, ownerEvents, signaturesRequired, a
           <Select value={methodName} style={{ width: "100%" }} onChange={ setMethodName }>
             <Option key="addSigner">addSigner()</Option>
             <Option key="removeSigner">removeSigner()</Option>
+            <Option key="uniswap">uniswap()</Option>
           </Select>
         </div>
         <div style={{margin:8,padding:8}}>

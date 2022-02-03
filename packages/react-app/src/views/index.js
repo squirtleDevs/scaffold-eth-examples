@@ -5,3 +5,4 @@ export { default as Owners } from "./Owners";
 export { default as FrontPage } from "./FrontPage";
 export { default as Transactions } from "./Transactions";
 export { default as Streams } from "./Streams";
+export { default as DaiSwap} from "./daiswap";

@@ -1,21 +1,25 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { BrowserRouter, Switch, Route, Link } from "react-router-dom";
+import { CaretUpOutlined, ScanOutlined, SendOutlined } from "@ant-design/icons";
+import QrReader from "react-qr-reader";
 import "antd/dist/antd.css";
 import {  StaticJsonRpcProvider, JsonRpcProvider, Web3Provider,InfuraProvider } from "@ethersproject/providers";
 import "./App.css";
-import { Row, Col, Button, Menu, Alert, Switch as SwitchD } from "antd";
+import { Row, Col, Button, Menu, Alert, Switch as SwitchD, notification, Modal, Input } from "antd";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
+import WalletConnect from "@walletconnect/client";
 import { useUserAddress } from "eth-hooks";
-import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch } from "./components";
-import { useExchangePrice, useGasPrice, useUserProvider, useContractLoader, useContractReader, useEventListener, useBalance, useExternalContractLoader, useOnBlock } from "./hooks";
+import { providers, utils } from "ethers";
+import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch, AddressInput, WCcomponent } from "./components";
+import { useExchangePrice, useGasPrice, useUserProvider, useContractLoader, useContractReader, useEventListener, useBalance, useExternalContractLoader, useOnBlock, useLocalStorage } from "./hooks";
 import { Transactor } from "./helpers";
 import { formatEther, parseEther } from "@ethersproject/units";
 //import Hints from "./Hints";
 import { Hints, ExampleUI, Subgraph } from "./views"
 import { useThemeSwitcher } from "react-css-theme-switcher";
 import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
-import { CreateTransaction, Transactions, Owners, FrontPage } from "./views"
+import { CreateTransaction, Transactions, Owners, FrontPage, DaiSwap } from "./views"
 
 /*
     Welcome to 🏗 scaffold-eth !
@@ -46,6 +50,9 @@ const poolServerUrl = "http://localhost:49832/"
 // 😬 Sorry for all the console logging
 const DEBUG = true
 
+//Required for punkwallet.io portions --- still need to figure out calldatascheme
+const { confirm } = Modal;
+const { ethers } = require("ethers");
 
 // 🛰 providers
 if(DEBUG) console.log("📡 Connecting to Mainnet Ethereum");
@@ -78,6 +85,217 @@ function App(props) {
   const [injectedProvider, setInjectedProvider] = useState();
   /* 💵 This hook will get the price of ETH from 🦄 Uniswap: */
   const price = useExchangePrice(targetNetwork,mainnetProvider);
+
+  //more punkwallet things
+  let startingAddress = "";
+  if (window.location.pathname) {
+  const incoming = window.location.pathname.replace("/", "");
+  if (incoming && ethers.utils.isAddress(incoming)) {
+    startingAddress = incoming;
+    window.history.pushState({}, "", "/");
+  }}
+
+  // punkwallet usestate/uselocalstorage constants
+const [walletConnectTx, setWalletConnectTx] = useState();
+const [toAddress, setToAddress] = useLocalStorage("Multisig addy", startingAddress, 120000);
+const [toWc, setToWC] = useLocalStorage();
+const [data, setData] = useState();
+const [amount, setAmount] = useState();
+const [ walletConnectUrl, setWalletConnectUrl ] = useState()
+const [walletModalData, setWalletModalData] = useState()
+const [ connected, setConnected ] = useState()
+const [ wallectConnectConnector, setWallectConnectConnector ] = useState()
+
+//punkwallet calldata/wc scheme
+useEffect(()=>{
+  //walletConnectUrl
+  if(walletConnectUrl){
+
+    //CLEAR LOCAL STORAGE?!?
+    localStorage.removeItem("walletconnect") // lololol
+
+    console.log(" 📡 Connecting to Wallet Connect....",walletConnectUrl)
+    const connector = new WalletConnect(
+      {
+        // Required
+        uri: walletConnectUrl,
+        // Required
+        clientMeta: {
+          description: "Forkable web wallet for small/quick transactions.",
+          url: "https://punkwallet.io",
+          icons: ["https://punkwallet.io/punk.png"],
+          name: "🧑‍🎤 PunkWallet.io",
+        },
+      }/*,
+      {
+        // Optional
+        url: "<YOUR_PUSH_SERVER_URL>",
+        type: "fcm",
+        token: token,
+        peerMeta: true,
+        language: language,
+      }*/
+    );
+
+    setWallectConnectConnector(connector)
+
+    // Subscribe to session requests
+    connector.on("session_request", (error, payload) => {
+      if (error) {
+        throw error;
+      }
+
+      console.log("SESSION REQUEST")
+      // Handle Session Request
+
+      connector.approveSession({
+        accounts: [                 // required
+          readContracts ? readContracts[contractName].address : readContracts
+        ],
+        chainId: targetNetwork.chainId               // required
+      })
+
+      setConnected(true)
+
+
+      /* payload:
+      {
+        id: 1,
+        jsonrpc: '2.0'.
+        method: 'session_request',
+        params: [{
+          peerId: '15d8b6a3-15bd-493e-9358-111e3a4e6ee4',
+          peerMeta: {
+            name: "WalletConnect Example",
+            description: "Try out WalletConnect v1.0",
+            icons: ["https://example.walletconnect.org/favicon.ico"],
+            url: "https://example.walletconnect.org"
+          }
+        }]
+      }
+      */
+    });
+
+    // Subscribe to call requests
+    connector.on("call_request", async (error, payload) => {
+      if (error) {
+        throw error;
+      }
+
+      console.log("REQUEST PERMISSION TO:",payload,payload.params[0])
+      // Handle Call Request
+      console.log("SETTING TO",payload.params[0].to)
+
+      setWalletConnectTx(true)
+
+      setToAddress(payload.params[0].to)
+      setData(payload.params[0].data?payload.params[0].data:"0x0000")
+
+      let bigNumber = ethers.BigNumber.from(payload.params[0].value)
+      console.log("bigNumber",bigNumber)
+
+      let newAmount = ethers.utils.formatEther(bigNumber)
+      console.log("newAmount",newAmount)
+      if(props.price){
+        newAmount = newAmount.div(props.price)
+      }
+    setAmount(newAmount)
+
+      /* payload:
+      {
+        id: 1,
+        jsonrpc: '2.0'.
+        method: 'eth_sign',
+        params: [
+          "0xbc28ea04101f03ea7a94c1379bc3ab32e65e62d3",
+          "My email is john@doe.com - 1537836206101"
+        ]
+      }
+      */
+
+      setWalletModalData({payload:payload,connector: connector})
+
+      confirm({
+          width: "90%",
+          size: "large",
+          title: 'Send Transaction?',
+          icon: <SendOutlined/>,
+          content: <pre>{payload && JSON.stringify(payload.params, null, 2)}</pre>,
+          onOk:async ()=>{
+
+            let result = await userProvider.send(payload.method, payload.params)
+
+            //console.log("MSG:",ethers.utils.toUtf8Bytes(msg).toString())
+
+            console.log("to",payload.params[0].to)
+            console.log("value",payload.params[0].value)
+            console.log("address:",address)
+
+            //let userSigner = userProvider.getSigner()
+            //result = await userSigner.signMessage(msg)
+            console.log("RESULT:",result)
+
+
+            connector.approveRequest({
+              id: payload.id,
+              result: result
+            });
+
+            notification.info({
+              message: "Wallet Connect Transaction Sent",
+              description: result.hash,
+              placement: "bottomRight",
+            });
+          },
+          onCancel: ()=>{
+            console.log('Cancel');
+          },
+        });
+
+      //setIsWalletModalVisible(true)
+
+     // if(payload.method == "personal_sign"){
+       // console.log("SIGNING A MESSAGE!!!")
+
+       // const msg = payload.params[0]
+
+
+      
+
+
+
+
+    });
+
+    connector.on("disconnect", (error, payload) => {
+      if (error) {
+        throw error;
+      }
+      console.log("disconnect")
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1);
+
+      // Delete connector
+    });
+  }
+},[ walletConnectUrl ])
+
+useMemo(() => {
+  if (window.location.pathname) {
+    if (window.location.pathname.indexOf("/wc") >= 0) {
+      console.log("WALLET CONNECT!!!!!",window.location.search)
+      let uri = window.location.search.replace("?uri=","")
+      console.log("WC URI:",uri)
+      setWalletConnectUrl(uri)
+    }
+  }
+}, [injectedProvider, localProvider]);
+
+
+
+console.log("startingAddress",startingAddress)
 
   /* 🔥 This hook will get the price of Gas from ⛽️ EtherGasStation */
   const gasPrice = useGasPrice(targetNetwork,"fast");
@@ -277,6 +495,31 @@ function App(props) {
               mainnetProvider={mainnetProvider}
               blockExplorer={blockExplorer}
             />
+             <WCcomponent
+            ensProvider={mainnetProvider}
+            placeholder={"Wallet Connect Scan"}
+            value={walletConnectUrl}
+            disabled={connected}            
+            style={{backgroundColor:targetNetwork.color,borderColor:targetNetwork.color}}          
+            onChange={(setToWC)=>{
+              setWalletConnectUrl(setToWC)
+            }}
+            walletConnect={(wcLink)=>{
+              setWalletConnectUrl(wcLink) }}
+          >{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}     
+          </WCcomponent>
+
+        <Input
+          style={{width:"35%"}}
+          placeholder={"Scan QR code or paste Wallet Connect code here"}
+          value={walletConnectUrl}
+          disabled={connected}
+          onChange={(e)=>{
+            setWalletConnectUrl(setToWC)
+          }}
+        />{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}
+        
+          
           </Route>
             { /* uncomment for a second contract:
             <Contract

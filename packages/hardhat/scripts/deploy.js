@@ -16,11 +16,11 @@ const main = async () => {
   const MetaMultiSigWallet = await deploy("MetaMultiSigWallet",[
     31337,
     ["0xDf8256c71dAe2Aa5D0FB8ECEDa68d2F9E1eB3b2E",
-    "0xB1E9C5149A005D71eBb2CC86595fD4b208464006",
+    "0x93Eee5A3c09e369cA13dAD5f50ebabecb8bA6650",
     "0x34aA3F359A9D614239015126635CE7732c18fDF3" ]
     ,    
-    1
-  ])
+    2
+  ]);
 
 
 
@@ -165,7 +165,7 @@ function sleep(ms) {
 // If you want to verify on https://tenderly.co/
 const tenderlyVerify = async ({contractName, contractAddress}) => {
 
-  let tenderlyNetworks = ["kovan","goerli","mainnet","rinkeby","ropsten","matic","mumbai","xDai","POA"]
+  let tenderlyNetworks = ["kovan","goerli","mainnet","rinkeby","ropsten","matic","mumbai","xDai","POA", "Optimism"]
   let targetNetwork = process.env.HARDHAT_NETWORK || config.defaultNetwork
 
   if(tenderlyNetworks.includes(targetNetwork)) {

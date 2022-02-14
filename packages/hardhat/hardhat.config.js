@@ -100,7 +100,17 @@ module.exports = {
       accounts: {
         mnemonic: mnemonic(),
       },
-    }
+    },
+    optimism: {
+      url: "https://optimism-mainnet.infura.io/v3/cd75ba40cad746f9abed19908da8ebb7",
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+      companionNetworks: {
+        l1: "mainnet",
+      },
+    },
+    
     
   },
   solidity: {
@@ -129,7 +139,7 @@ module.exports = {
   etherscan: {
     // Your API key for Etherscan
     // Obtain one at https://etherscan.io/
-    apiKey: "PSW8C433Q667DVEX5BCRMGNAH9FSGFZ7Q8"
+    apiKey: "442WU6EQDVT3BZW2QZUSGB9RQX1F2I4KQ9"
   }
 };
 

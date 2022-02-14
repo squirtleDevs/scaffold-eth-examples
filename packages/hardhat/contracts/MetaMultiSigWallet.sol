@@ -59,10 +59,7 @@ contract MetaMultiSigWallet {
         emit Owner(oldSigner,isOwner[oldSigner]);
     }
 
-    function hash(uint256 fndetails, uint256 amountIn, address fromm, address too, string memory datar) public view returns (bytes memory signedHash) {
-        bytes memory hexString = abi.encodeWithSignature(fndetails, amountIn, fromm,  too, datar);
-        return hexString;
-    }
+
 
     function transferFunds(address payable to, uint256 value) public onlySelf {
         require(address(this).balance > value, "Not enough funds in Wallet");

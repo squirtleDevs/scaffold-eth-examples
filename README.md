@@ -12,11 +12,11 @@ required: [Node](https://nodejs.org/dist/latest-v12.x/) plus [Yarn](https://clas
 
 
 ```bash
-git clone https://github.com/scaffold-eth/scaffold-eth-examples meta-multi-sig
+git clone --https://github.com/squirtleDevs/squirtle-scaffold-eth-examples.git
 
-cd meta-multi-sig
+cd squirtle-scaffold-eth-examples
 
-git checkout meta-multi-sig
+git checkout challenge-4-scanning-meta-multi-sig
 ```
 
 ```bash
@@ -34,7 +34,7 @@ yarn start
 > in a second terminal window:
 
 ```bash
-cd scaffold-eth
+
 yarn chain
 
 ```
@@ -52,6 +52,8 @@ yarn chain
 
 ```bash
 yarn backend
+
+**using yarn gun now on the backend
 
 ```
 

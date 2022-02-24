@@ -65,7 +65,7 @@ export default function CreateTransaction({
         if(decodedDataObject.signature === "addSigner(address,uint256)"){
           setMethodName("addSigner")
           setSelectDisabled(true)
-        } else if (decodedDataObject.signature === "removeSigner(address,uint256)"){
+        } else if (decodedDataObject.signature === "sighash"){
           setMethodName("removeSigner")
           setSelectDisabled(true)
         }

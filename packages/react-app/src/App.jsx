@@ -11,7 +11,7 @@ import WalletConnectProvider from "@walletconnect/web3-provider";
 import WalletConnect from "@walletconnect/client";
 import { useUserAddress } from "eth-hooks";
 import { providers, utils } from "ethers";
-import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch, AddressInput, WCcomponent } from "./components";
+import { Balance, Header, Account, Faucet, Ramp, Contract, GasGauge, Address, ThemeSwitch, AddressInput, WCcomponent, EtherInput, Blockie  } from "./components";
 import { useExchangePrice, useGasPrice, useUserProvider, useContractLoader, useContractReader, useEventListener, useBalance, useExternalContractLoader, useOnBlock, useLocalStorage } from "./hooks";
 import { Transactor } from "./helpers";
 import { formatEther, parseEther } from "@ethersproject/units";
@@ -20,6 +20,9 @@ import { Hints, ExampleUI, Subgraph } from "./views"
 import { useThemeSwitcher } from "react-css-theme-switcher";
 import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
 import { CreateTransaction, Transactions, Owners, FrontPage, DaiSwap } from "./views"
+import { Interface } from "ethers/lib/utils";
+
+const axios = require("axios");
 
 /*
     Welcome to 🏗 scaffold-eth !
@@ -42,7 +45,7 @@ import { CreateTransaction, Transactions, Owners, FrontPage, DaiSwap } from "./v
 
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS['localhost']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS['rinkeby']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // const poolServerUrl = "https://backend.multisig.holdings:49832/"
 const poolServerUrl = "http://localhost:49832/"
@@ -99,12 +102,22 @@ function App(props) {
 const [walletConnectTx, setWalletConnectTx] = useState();
 const [toAddress, setToAddress] = useLocalStorage("Multisig addy", startingAddress, 120000);
 const [toWc, setToWC] = useLocalStorage();
-const [data, setData] = useState();
-const [amount, setAmount] = useState();
+const [data, setData] = useLocalStorage("data", "0x");
+const [amount, setAmount] = useLocalStorage("amount", "0");
 const [ walletConnectUrl, setWalletConnectUrl ] = useState()
 const [walletModalData, setWalletModalData] = useState()
 const [ connected, setConnected ] = useState()
 const [ wallectConnectConnector, setWallectConnectConnector ] = useState()
+
+const [customNonce, setCustomNonce] = useState();
+const [to, setTo] = useLocalStorage("to");
+const [isCreateTxnEnabled, setCreateTxnEnabled] = useState(true);
+const [decodedDataState, setDecodedData] = useState();
+const [methodName, setMethodName] = useState();
+const [selectDisabled, setSelectDisabled] = useState(false);
+let decodedData = "";
+
+const [result, setResult] = useState();
 
 //punkwallet calldata/wc scheme
 useEffect(()=>{
@@ -138,7 +151,7 @@ useEffect(()=>{
     );
 
     setWallectConnectConnector(connector)
-
+        
     // Subscribe to session requests
     connector.on("session_request", (error, payload) => {
       if (error) {
@@ -223,27 +236,96 @@ useEffect(()=>{
           content: <pre>{payload && JSON.stringify(payload.params, null, 2)}</pre>,
           onOk:async ()=>{
 
-            let result = await userProvider.send(payload.method, payload.params)
+            console.log("customNonce", customNonce);
+            const nonce = customNonce || (await readContracts[contractName].nonce());
+            console.log("nonce", nonce);
 
-            //console.log("MSG:",ethers.utils.toUtf8Bytes(msg).toString())
+            const newHash = await writeContracts[contractName].getTransactionHash(
+              nonce,
+              payload.params[0].to,
+              payload.params[0].value,
+              payload.params[0].data,
+            );
+            console.log("newHash", newHash);
 
-            console.log("to",payload.params[0].to)
-            console.log("value",payload.params[0].value)
-            console.log("address:",address)
+            
+            const signature = await userProvider.send("personal_sign", [newHash, address]);
+            console.log("signature", signature);
+
+            const recover = await readContracts[contractName].recover(newHash, signature);
+            console.log("recover", recover);
+
+
+
+
+
+
+            const isOwner = await readContracts[contractName].isOwner(recover);
+            console.log("isOwner", isOwner);
+
+            
+            if (isOwner) {
+              const res = await axios.post(poolServerUrl, {
+                chainId: localProvider._network.chainId,
+                address: readContracts[contractName].address,
+                nonce: nonce.toNumber(),
+                to: payload.params[0].to,
+                amount: ethers.utils.formatEther(bigNumber),
+                data: payload.params[0].data,
+                hash: newHash,
+                signatures: [signature],
+                signers: [recover],
+              });
+              // IF SIG IS VALUE ETC END TO SERVER AND SERVER VERIFIES SIG IS RIGHT AND IS SIGNER BEFORE ADDING TY
+
+              console.log("RESULT", res.data);
+              console.log("nonce:", nonce)
+              console.log("to:", payload.params[0].to)
+
+              console.log("value:", ethers.utils.formatEther(bigNumber))
+              console.log("data:", payload.params[0].data)
+
+
+
+              setResult(res.data.hash);
+              setTo(payload.params[0].to);
+              setAmount(payload.params[0].value);
+              setData(payload.params[0].data);
+            } else {
+              console.log("ERROR, NOT OWNER.");
+              setResult("ERROR, NOT OWNER.");
+            }
+
+
+            
+            //let msg = await writeContracts.MetaMultiSigWallet.getTransactionHash(nonce, payload.params[0].to, parseEther("" + parseFloat(payload.params[0].value).toFixed(12)), payload.params[0].data);
+            //let msg = await userProvider.send(payload.method, payload.params);
+           // let userSigner = userProvider.getSigner();
+            //let result = await userSigner.signMessage(payload.params);
+            //let msg2 = payload.params[0];
+
+
+            //console.log("MSG:",ethers.utils.toUtf8Bytes(result).toString())
 
             //let userSigner = userProvider.getSigner()
             //result = await userSigner.signMessage(msg)
-            console.log("RESULT:",result)
+            //console.log("RESULT:", result)
+            //console.log("msg", msg)
+
+            
+
+            //logging
 
 
+            
             connector.approveRequest({
               id: payload.id,
-              result: result
+              result: data
             });
 
             notification.info({
-              message: "Wallet Connect Transaction Sent",
-              description: result.hash,
+              message: "Wallet Connect Transaction Sent, Check the TX pool",
+              description: "YEET",
               placement: "bottomRight",
             });
           },
@@ -254,9 +336,9 @@ useEffect(()=>{
 
       //setIsWalletModalVisible(true)
 
-     // if(payload.method == "personal_sign"){
-       // console.log("SIGNING A MESSAGE!!!")
-
+      if(payload.method == "personal_sign"){
+        console.log("SIGNING A MESSAGE!!!")
+      }
        // const msg = payload.params[0]
 
 
@@ -339,6 +421,7 @@ console.log("startingAddress",startingAddress)
 
   // keep track of a variable from the contract in the local React state:
   const nonce = useContractReader(readContracts, contractName, "nonce")
+  
   if(DEBUG) console.log("# nonce:",nonce)
 
   //📟 Listen for broadcast events

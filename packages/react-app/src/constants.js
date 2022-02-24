@@ -99,5 +99,12 @@ export const NETWORKS = {
         rpcUrl: "https://rpc-mumbai.maticvigil.com",
         faucet: "https://faucet.matic.network/",
         blockExplorer: "https://mumbai-explorer.matic.today/",
-    }
+    },
+    optimism: {
+        name: "optimism",
+        color: "#f01a37",
+        chainId: 10,
+        blockExplorer: "https://optimistic.etherscan.io/",
+        rpcUrl: `https://mainnet.optimism.io`,
+      },
 }

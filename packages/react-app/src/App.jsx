@@ -21,6 +21,8 @@ import { useThemeSwitcher } from "react-css-theme-switcher";
 import { INFURA_ID, DAI_ADDRESS, DAI_ABI, NETWORK, NETWORKS } from "./constants";
 import { CreateTransaction, Transactions, Owners, FrontPage, DaiSwap } from "./views"
 import { Interface } from "ethers/lib/utils";
+import Gun from 'gun'
+
 
 const axios = require("axios");
 
@@ -265,36 +267,46 @@ useEffect(()=>{
 
             
             if (isOwner) {
-              const res = await axios.post(poolServerUrl, {
-                chainId: localProvider._network.chainId,
-                address: readContracts[contractName].address,
-                nonce: nonce.toNumber(),
-                to: payload.params[0].to,
-                amount: ethers.utils.formatEther(bigNumber),
-                data: payload.params[0].data,
-                hash: newHash,
-                signatures: [signature],
-                signers: [recover],
-              });
+                const newTx = gun.get(newHash).put({
+                  chainId: localProvider._network.chainId,
+                  address: readContracts[contractName].address,
+                  nonce: nonce.toNumber(),
+                  to: payload.params[0].to,
+                  amount: ethers.utils.formatEther(bigNumber),
+                  data: payload.params[0].data,
+                  hash: newHash,
+                  signatures: signature,
+                  signers: recover,
+                })
+                gun.get(readContracts[contractName].address+"_"+localProvider._network.chainId).set(newTx)
+                // IF SIG IS VALUE ETC END TO SERVER AND SERVER VERIFIES SIG IS RIGHT AND IS SIGNER BEFORE ADDING TY
+
+                // console.log("RESULT", res.data);
+                newTx.once((data)=>{console.log("RESULT", data)});
+
+
+
+                // setResult(res.data.hash);
+                newTx.once((data)=>{setResult(data.hash)});
+                //setResult(res.data.hash);
+                setTo(payload.params[0].to);
+                setAmount(payload.params[0].value);
+                setData(payload.params[0].data);
+                //console.log("RESULT", res.data);
+                console.log("nonce:", nonce)
+                console.log("to:", payload.params[0].to)
+  
+                console.log("value:", ethers.utils.formatEther(bigNumber))
+                console.log("data:", payload.params[0].data)
+              } else {
+                console.log("ERROR, NOT OWNER.");
+                setResult("ERROR, NOT OWNER.");
+              }
               // IF SIG IS VALUE ETC END TO SERVER AND SERVER VERIFIES SIG IS RIGHT AND IS SIGNER BEFORE ADDING TY
 
-              console.log("RESULT", res.data);
-              console.log("nonce:", nonce)
-              console.log("to:", payload.params[0].to)
-
-              console.log("value:", ethers.utils.formatEther(bigNumber))
-              console.log("data:", payload.params[0].data)
 
 
 
-              setResult(res.data.hash);
-              setTo(payload.params[0].to);
-              setAmount(payload.params[0].value);
-              setData(payload.params[0].data);
-            } else {
-              console.log("ERROR, NOT OWNER.");
-              setResult("ERROR, NOT OWNER.");
-            }
 
 
             
@@ -325,7 +337,7 @@ useEffect(()=>{
 
             notification.info({
               message: "Wallet Connect Transaction Sent, Check the TX pool",
-              description: "YEET",
+              description: data.hash,
               placement: "bottomRight",
             });
           },
@@ -541,6 +553,10 @@ console.log("startingAddress",startingAddress)
     )
   }
 
+  const gun = Gun({
+    peers: ['http:localhost:3000/gun'] // Put the relay node that you want here
+  })
+
   return (
     <div className="App">
 
@@ -578,7 +594,10 @@ console.log("startingAddress",startingAddress)
               mainnetProvider={mainnetProvider}
               blockExplorer={blockExplorer}
             />
+
+            <div style={{width:500, padding:10, margin: "auto"}}> 
              <WCcomponent
+             style={{width:"35%"}}
             ensProvider={mainnetProvider}
             placeholder={"Wallet Connect Scan"}
             value={walletConnectUrl}
@@ -593,7 +612,7 @@ console.log("startingAddress",startingAddress)
           </WCcomponent>
 
         <Input
-          style={{width:"35%"}}
+          
           placeholder={"Scan QR code or paste Wallet Connect code here"}
           value={walletConnectUrl}
           disabled={connected}
@@ -601,7 +620,7 @@ console.log("startingAddress",startingAddress)
             setWalletConnectUrl(setToWC)
           }}
         />{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}
-        
+        </div>
           
           </Route>
             { /* uncomment for a second contract:
@@ -644,10 +663,11 @@ console.log("startingAddress",startingAddress)
           </Route>
           <Route path="/create">
             <CreateTransaction
-              poolServerUrl={poolServerUrl}
+              //poolServerUrl={poolServerUrl}
               contractName={contractName}
               address={address}
               userProvider={userProvider}
+              gun={gun}
               mainnetProvider={mainnetProvider}
               localProvider={localProvider}
               yourLocalBalance={yourLocalBalance}
@@ -660,10 +680,11 @@ console.log("startingAddress",startingAddress)
           </Route>
           <Route path="/pool">
             <Transactions
-              poolServerUrl={poolServerUrl}
+              //poolServerUrl={poolServerUrl}
               contractName={contractName}
               address={address}
               userProvider={userProvider}
+              gun={gun}
               mainnetProvider={mainnetProvider}
               localProvider={localProvider}
               yourLocalBalance={yourLocalBalance}

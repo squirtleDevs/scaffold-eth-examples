@@ -48,7 +48,8 @@
     "deploy-and-graph": "yarn deploy && yarn graph-ship-local",
     "theme": "yarn workspace @scaffold-eth/react-app theme",
     "watch-theme": "yarn workspace @scaffold-eth/react-app watch",
-    "backend": "cd packages/backend && node index"
+    "backend": "cd packages/backend && node index",
+    "gun": "cd packages/backend && node gun"
   },
   "workspaces": {
     "packages": [
@@ -66,6 +67,7 @@
     "browserlist": "^1.0.1",
     "caniuse-lite": "^1.0.30001218",
     "cors": "^2.8.5",
+    "gun": "^0.2020.1235",
     "postcss-browser-comments": "^3.0.0"
   }
 }

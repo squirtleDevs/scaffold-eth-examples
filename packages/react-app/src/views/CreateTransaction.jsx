@@ -1,22 +1,22 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Select, List, Divider, Input, Card, DatePicker, Slider, Switch, Progress, Spin } from "antd";
-import { SyncOutlined } from "@ant-design/icons";
+import { Button, Select, List, Divider, Input, Card, DatePicker, Slider, Switch, Progress, Spin, Tooltip } from "antd";
+import { SyncOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { parseEther, formatEther } from "@ethersproject/units";
 import { Address, AddressInput, Balance, EtherInput, Blockie } from "../components";
-import { useContractReader, useEventListener } from "../hooks";
+import { useContractReader, useEventListener } from "eth-hooks";
 const { Option } = Select;
-
+const { ethers } = require("ethers");
 const axios = require("axios");
 
 export default function CreateTransaction({
   poolServerUrl,
   contractName,
   address,
-  setRoute,
   userProvider,
   mainnetProvider,
   localProvider,
+  gun,
   yourLocalBalance,
   price,
   tx,
@@ -27,7 +27,7 @@ export default function CreateTransaction({
 
   // keep track of a variable from the contract in the local React state:
   const nonce = useContractReader(readContracts, contractName, "nonce");
-  const calldataInputRef = useRef("0x");
+  const calldataInputRef = useRef("0x00");
 
   console.log("🤗 nonce:", nonce);
 
@@ -36,7 +36,7 @@ export default function CreateTransaction({
   const [customNonce, setCustomNonce] = useState();
   const [to, setTo] = useLocalStorage("to");
   const [amount, setAmount] = useLocalStorage("amount", "0");
-  const [data, setData] = useLocalStorage("data", "0x");
+  const [data, setData] = useLocalStorage("data", "0x00");
   const [isCreateTxnEnabled, setCreateTxnEnabled] = useState(true);
   const [decodedDataState, setDecodedData] = useState();
   const [methodName, setMethodName] = useState();
@@ -65,7 +65,7 @@ export default function CreateTransaction({
         if(decodedDataObject.signature === "addSigner(address,uint256)"){
           setMethodName("addSigner")
           setSelectDisabled(true)
-        } else if (decodedDataObject.signature === "sighash"){
+        } else if (decodedDataObject.signature === "removeSigner(address,uint256)"){
           setMethodName("removeSigner")
           setSelectDisabled(true)
         }
@@ -140,9 +140,6 @@ export default function CreateTransaction({
 
   return (
     <div>
-      {/*
-        ⚙️ Here is an example UI that displays and sets the purpose in your smart contract:
-      */}
       <div style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}>
         <div style={{ margin: 8 }}>
           <div style={inputStyle}>
@@ -156,7 +153,8 @@ export default function CreateTransaction({
           </div>
                   <div style={{margin:8,padding:8}}>
           <Select value={methodName} disabled={selectDisabled} style={{ width: "100%" }} onChange={ setMethodName }>
-            //<Option key="transferFunds">transferFunds()</Option>
+            <Option key="transferFunds">Transfer some ETH</Option>
+            <Option key="custom">Custom Call Data</Option>
             <Option disabled={true} key="addSigner">addSigner()</Option>
             <Option disabled={true} key="removeSigner">removeSigner()</Option>
           </Select>
@@ -174,7 +172,7 @@ export default function CreateTransaction({
           {!selectDisabled && <div style={inputStyle}>
             <EtherInput price={price} mode="USD" value={amount} onChange={setAmount} />
           </div>}
-          <div style={inputStyle}>
+          {methodName != "transferFunds" && <div style={inputStyle}>
             <Input
               placeholder="calldata"
               value={data}
@@ -183,18 +181,16 @@ export default function CreateTransaction({
               }}
               ref={calldataInputRef}
             />
+            <Tooltip title="Input a Custom Call Data Hash">
+              <InfoCircleOutlined />
+            </Tooltip>
             {decodedDataState}
-          </div>
-
+          </div>}
           <Button
             style={{ marginTop: 32 }}
             disabled={!isCreateTxnEnabled}
             onClick={async () => {
               // setData(calldataInputRef.current.state.value)
-              // if (data && data == "0x") {
-              //   setResult("ERROR, Call Data Invalid");
-              //   return;
-              // }
               console.log("customNonce", customNonce);
               const nonce = customNonce || (await readContracts[contractName].nonce());
               console.log("nonce", nonce);
@@ -206,8 +202,8 @@ export default function CreateTransaction({
                 data,
               );
               console.log("newHash", newHash);
-
-              const signature = await userProvider.send("personal_sign", [newHash, address]);
+              let userSigner = userProvider.getSigner();
+              const signature = await userSigner.signMessage(ethers.utils.arrayify(newHash));
               console.log("signature", signature);
 
               const recover = await readContracts[contractName].recover(newHash, signature);
@@ -217,7 +213,19 @@ export default function CreateTransaction({
               console.log("isOwner", isOwner);
 
               if (isOwner) {
-                const res = await axios.post(poolServerUrl, {
+                // const res = await axios.post(poolServerUrl, {
+                //   chainId: localProvider._network.chainId,
+                //   address: readContracts[contractName].address,
+                //   nonce: nonce.toNumber(),
+                //   to,
+                //   amount,
+                //   data,
+                //   hash: newHash,
+                //   signatures: [signature],
+                //   signers: [recover],
+                // });
+
+                const newTx = gun.get(newHash).put({
                   chainId: localProvider._network.chainId,
                   address: readContracts[contractName].address,
                   nonce: nonce.toNumber(),
@@ -225,21 +233,24 @@ export default function CreateTransaction({
                   amount,
                   data,
                   hash: newHash,
-                  signatures: [signature],
-                  signers: [recover],
-                });
+                  signatures: signature,
+                  signers: recover,
+                })
+                gun.get(readContracts[contractName].address+"_"+localProvider._network.chainId).set(newTx)
                 // IF SIG IS VALUE ETC END TO SERVER AND SERVER VERIFIES SIG IS RIGHT AND IS SIGNER BEFORE ADDING TY
 
-                console.log("RESULT", res.data);
+                // console.log("RESULT", res.data);
+                newTx.once((data)=>{console.log("RESULT", data)});
 
                 setTimeout(() => {
                   history.push("/pool");
                 }, 2777);
 
-                setResult(res.data.hash);
+                // setResult(res.data.hash);
+                newTx.once((data)=>{setResult(data.hash)});
                 setTo();
                 setAmount("0");
-                setData("0x");
+                setData("0x00");
               } else {
                 console.log("ERROR, NOT OWNER.");
                 setResult("ERROR, NOT OWNER.");

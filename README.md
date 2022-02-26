@@ -12,7 +12,7 @@ required: [Node](https://nodejs.org/dist/latest-v12.x/) plus [Yarn](https://clas
 
 
 ```bash
-git clone --https://github.com/squirtleDevs/squirtle-scaffold-eth-examples.git
+git clone https://github.com/squirtleDevs/squirtle-scaffold-eth-examples.git
 
 cd squirtle-scaffold-eth-examples
 

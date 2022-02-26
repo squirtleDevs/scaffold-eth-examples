@@ -47,7 +47,7 @@ const axios = require("axios");
 
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS['rinkeby']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS['mainnet']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // const poolServerUrl = "https://backend.multisig.holdings:49832/"
 const poolServerUrl = "http://localhost:49832/"
@@ -205,7 +205,7 @@ useEffect(()=>{
 
       setToAddress(payload.params[0].to)
       setData(payload.params[0].data?payload.params[0].data:"0x0000")
-
+      console.log("payload.params.value", payload.params[0].value)
       let bigNumber = ethers.BigNumber.from(payload.params[0].value)
       console.log("bigNumber",bigNumber)
 
@@ -272,7 +272,7 @@ useEffect(()=>{
                   address: readContracts[contractName].address,
                   nonce: nonce.toNumber(),
                   to: payload.params[0].to,
-                  amount: ethers.utils.formatEther(bigNumber),
+                  amount: ethers.utils.formatEther(payload.params[0].value) || 0,
                   data: payload.params[0].data,
                   hash: newHash,
                   signatures: signature,
@@ -295,6 +295,7 @@ useEffect(()=>{
                 //console.log("RESULT", res.data);
                 console.log("nonce:", nonce)
                 console.log("to:", payload.params[0].to)
+                
   
                 console.log("value:", ethers.utils.formatEther(bigNumber))
                 console.log("data:", payload.params[0].data)
@@ -554,7 +555,7 @@ console.log("startingAddress",startingAddress)
   }
 
   const gun = Gun({
-    peers: ['http:localhost:3000/gun'] // Put the relay node that you want here
+    peers: ['https://outrageousdad.herokuapp.com/gun'] // Put the relay node that you want here
   })
 
   return (

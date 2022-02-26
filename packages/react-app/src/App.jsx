@@ -47,7 +47,7 @@ const axios = require("axios");
 
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS['mainnet']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS['localhost']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // const poolServerUrl = "https://backend.multisig.holdings:49832/"
 const poolServerUrl = "http://localhost:49832/"
@@ -153,7 +153,7 @@ useEffect(()=>{
     );
 
     setWallectConnectConnector(connector)
-        
+
     // Subscribe to session requests
     connector.on("session_request", (error, payload) => {
       if (error) {
@@ -250,7 +250,7 @@ useEffect(()=>{
             );
             console.log("newHash", newHash);
 
-            
+
             const signature = await userProvider.send("personal_sign", [newHash, address]);
             console.log("signature", signature);
 
@@ -265,7 +265,7 @@ useEffect(()=>{
             const isOwner = await readContracts[contractName].isOwner(recover);
             console.log("isOwner", isOwner);
 
-            
+
             if (isOwner) {
                 const newTx = gun.get(newHash).put({
                   chainId: localProvider._network.chainId,
@@ -295,8 +295,8 @@ useEffect(()=>{
                 //console.log("RESULT", res.data);
                 console.log("nonce:", nonce)
                 console.log("to:", payload.params[0].to)
-                
-  
+
+
                 console.log("value:", ethers.utils.formatEther(bigNumber))
                 console.log("data:", payload.params[0].data)
               } else {
@@ -310,7 +310,7 @@ useEffect(()=>{
 
 
 
-            
+
             //let msg = await writeContracts.MetaMultiSigWallet.getTransactionHash(nonce, payload.params[0].to, parseEther("" + parseFloat(payload.params[0].value).toFixed(12)), payload.params[0].data);
             //let msg = await userProvider.send(payload.method, payload.params);
            // let userSigner = userProvider.getSigner();
@@ -325,12 +325,12 @@ useEffect(()=>{
             //console.log("RESULT:", result)
             //console.log("msg", msg)
 
-            
+
 
             //logging
 
 
-            
+
             connector.approveRequest({
               id: payload.id,
               result: data
@@ -355,7 +355,7 @@ useEffect(()=>{
        // const msg = payload.params[0]
 
 
-      
+
 
 
 
@@ -434,7 +434,7 @@ console.log("startingAddress",startingAddress)
 
   // keep track of a variable from the contract in the local React state:
   const nonce = useContractReader(readContracts, contractName, "nonce")
-  
+
   if(DEBUG) console.log("# nonce:",nonce)
 
   //📟 Listen for broadcast events
@@ -596,24 +596,24 @@ console.log("startingAddress",startingAddress)
               blockExplorer={blockExplorer}
             />
 
-            <div style={{width:500, padding:10, margin: "auto"}}> 
+            <div style={{width:500, padding:10, margin: "auto"}}>
              <WCcomponent
              style={{width:"35%"}}
             ensProvider={mainnetProvider}
             placeholder={"Wallet Connect Scan"}
             value={walletConnectUrl}
-            disabled={connected}            
-            style={{backgroundColor:targetNetwork.color,borderColor:targetNetwork.color}}          
+            disabled={connected}
+            style={{backgroundColor:targetNetwork.color,borderColor:targetNetwork.color}}
             onChange={(setToWC)=>{
               setWalletConnectUrl(setToWC)
             }}
             walletConnect={(wcLink)=>{
               setWalletConnectUrl(wcLink) }}
-          >{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}     
+          >{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}
           </WCcomponent>
 
         <Input
-          
+
           placeholder={"Scan QR code or paste Wallet Connect code here"}
           value={walletConnectUrl}
           disabled={connected}
@@ -622,7 +622,7 @@ console.log("startingAddress",startingAddress)
           }}
         />{connected?<span onClick={()=>{setConnected(false);wallectConnectConnector.killSession()}}>X</span>:""}
         </div>
-          
+
           </Route>
             { /* uncomment for a second contract:
             <Contract

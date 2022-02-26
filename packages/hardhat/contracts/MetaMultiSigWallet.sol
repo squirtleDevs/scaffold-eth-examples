@@ -2,9 +2,9 @@ pragma solidity >=0.8.0 <0.9.0;
 pragma abicoder v2;
 //SPDX-License-Identifier: MIT
 
-import "hardhat/console.sol";
-import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-// import "@openzeppelin/contracts/access/Ownable.sol"; 
+//import "hardhat/console.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+// import "@openzeppelin/contracts/access/Ownable.sol";
 // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
 
 contract MetaMultiSigWallet {
@@ -35,7 +35,7 @@ contract MetaMultiSigWallet {
     require(msg.sender == address(this), "Not Self! Fail.");
     _;
   }
-  
+
   function addSigner(address newSigner, uint256 newSignaturesRequired) public onlySelf {
     require(newSigner!=address(0), "addSigner: zero address. fail.");
     require(!isOwner[newSigner], "addSigner: owner not unique. fail.");

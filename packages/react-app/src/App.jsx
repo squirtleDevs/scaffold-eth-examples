@@ -47,7 +47,7 @@ const axios = require("axios");
 
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS['localhost']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS['rinkeby']; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // const poolServerUrl = "https://backend.multisig.holdings:49832/"
 const poolServerUrl = "http://localhost:49832/"
@@ -264,8 +264,20 @@ useEffect(()=>{
 
             const isOwner = await readContracts[contractName].isOwner(recover);
             console.log("isOwner", isOwner);
+//if you'd like to run your own server/locally via yarn backend, you will want to uncomment this line - as well as comment out the lines below referencing gun
+/*               const res = await axios.post(poolServerUrl, {
+                chainId: localProvider._network.chainId,
+                address: readContracts[contractName].address,
+                nonce: nonce.toNumber(),
+                to: payload.params[0].to,
+                amount: ethers.utils.formatEther(bigNumber),
+                data: payload.params[0].data,
+                hash: newHash,
+                signatures: [signature],
+                signers: [recover],
+              }); */
 
-
+            //if youd like to use a different scheme than gun, uncomment the section below till line 318
             if (isOwner) {
                 const newTx = gun.get(newHash).put({
                   chainId: localProvider._network.chainId,
@@ -280,6 +292,28 @@ useEffect(()=>{
                 })
                 gun.get(readContracts[contractName].address+"_"+localProvider._network.chainId).set(newTx)
                 // IF SIG IS VALUE ETC END TO SERVER AND SERVER VERIFIES SIG IS RIGHT AND IS SIGNER BEFORE ADDING TY
+
+                //this section acompanies the commented section above for using your own server/localhost with yarn backend command
+                /*
+                console.log("RESULT", res.data);
+              console.log("nonce:", nonce)
+              console.log("to:", payload.params[0].to)
+
+              console.log("value:", ethers.utils.formatEther(bigNumber))
+              console.log("data:", payload.params[0].data)
+
+
+
+              setResult(res.data.hash);
+              setTo(payload.params[0].to);
+              setAmount(payload.params[0].value);
+              setData(payload.params[0].data);
+            } else {
+              console.log("ERROR, NOT OWNER.");
+              setResult("ERROR, NOT OWNER.");
+            }
+*/
+//uncomment the above for yarn backend
 
                 // console.log("RESULT", res.data);
                 newTx.once((data)=>{console.log("RESULT", data)});
@@ -303,6 +337,7 @@ useEffect(()=>{
                 console.log("ERROR, NOT OWNER.");
                 setResult("ERROR, NOT OWNER.");
               }
+              //to here!!
               // IF SIG IS VALUE ETC END TO SERVER AND SERVER VERIFIES SIG IS RIGHT AND IS SIGNER BEFORE ADDING TY
 
 
@@ -554,8 +589,10 @@ console.log("startingAddress",startingAddress)
     )
   }
 
+  //change the app name to the one you deploy via herokuapp/peer network of choice
+  //you can uncomment the line below to 597 if you won't be using gun
   const gun = Gun({
-    peers: ['https://outrageousdad.herokuapp.com/gun'] // Put the relay node that you want here
+    peers: ['https://YOURAPPNAME.herokuapp.com/gun'] // Put the relay node that you want here
   })
 
   return (
@@ -664,6 +701,7 @@ console.log("startingAddress",startingAddress)
           </Route>
           <Route path="/create">
             <CreateTransaction
+              //uncomment the line below and comment line 709 referencing gun if needed
               //poolServerUrl={poolServerUrl}
               contractName={contractName}
               address={address}
@@ -681,6 +719,7 @@ console.log("startingAddress",startingAddress)
           </Route>
           <Route path="/pool">
             <Transactions
+              //uncomment the line below and comment line 709 referencing gun if needed
               //poolServerUrl={poolServerUrl}
               contractName={contractName}
               address={address}

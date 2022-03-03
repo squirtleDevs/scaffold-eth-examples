@@ -13,9 +13,11 @@ const main = async () => {
                     // 0xbB69eAb3c34A368151277823e36921Fb366EaE1e (ropsten/rinkeby)
                     // 0x22d63804D00b4B2BF3dE7Dd21c22aD839E62f920 (meta-wallet)
 
+
+                    //make sure to change "31337 to your target chain id - set owners in the next argument, and number of signers last"
   const MetaMultiSigWallet = await deploy("MetaMultiSigWallet",[
-    31337,
-    [ "0xB5e6dC8299bFbcf1748109C6aF52E9BD76b5AF83" ],
+    4,
+    [ "0x93Eee5A3c09e369cA13dAD5f50ebabecb8bA6650" ],
     1
   ])
 

@@ -13,6 +13,8 @@ export default function CreateTransaction({
   poolServerUrl,
   contractName,
   address,
+  //uncomment below if needed
+  //setRoute,
   userProvider,
   mainnetProvider,
   localProvider,
@@ -213,6 +215,7 @@ export default function CreateTransaction({
               console.log("isOwner", isOwner);
 
               if (isOwner) {
+                //COMMENT BACK IN IF YOU WANT TO RUN LOCAL/OWN SERVER
                 // const res = await axios.post(poolServerUrl, {
                 //   chainId: localProvider._network.chainId,
                 //   address: readContracts[contractName].address,
@@ -224,7 +227,7 @@ export default function CreateTransaction({
                 //   signatures: [signature],
                 //   signers: [recover],
                 // });
-
+                // COMMENT BELOW TO LINE 242 IF YOU WONT BE USING GUN    
                 const newTx = gun.get(newHash).put({
                   chainId: localProvider._network.chainId,
                   address: readContracts[contractName].address,
@@ -246,6 +249,7 @@ export default function CreateTransaction({
                   history.push("/pool");
                 }, 2777);
 
+                //uncomment line below and comment line 254 if using yarn backend
                 // setResult(res.data.hash);
                 newTx.once((data)=>{setResult(data.hash)});
                 setTo();

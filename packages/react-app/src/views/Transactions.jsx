@@ -39,9 +39,14 @@ export default function Transactions({
     console.log("gundb txs",totalTransactions)
   }
   
+  //if using yarn backend uncomment this poller, and comment in the one below
   usePoller(() => {
     const getTransactions = async () => {
       if (true) console.log("🛰 Requesting Transaction List");
+      //comment in below if using yarn backend
+      /*const res = await axios.get(
+        poolServerUrl + readContracts[contractName].address + "_" + localProvider._network.chainId,
+      );*/
       const newTransactions = [];
       
       for (const i in totalTransactions) {
@@ -58,6 +63,8 @@ export default function Transactions({
               validSignatures.push({ signer, signature: signatures[s] });
             }
           }
+          //uncomment 66 and comment 67 if using yarn backend
+          //const update = { ...res.data[i], validSignatures };
           const update = { ...totalTransactions[i], validSignatures };
           // console.log("update",update)
           newTransactions.push(update);
@@ -207,3 +214,84 @@ export default function Transactions({
     </div>
   );
 }
+
+//comment below and uncomment above if using yarn!!
+
+/*usePoller(() => {
+    const getTransactions = async () => {
+      if (true) console.log("🛰 Requesting Transaction List");
+      const res = await axios.get(
+        poolServerUrl + readContracts[contractName].address + "_" + localProvider._network.chainId,
+      );
+      const newTransactions = [];
+      for (const i in res.data) {
+        // console.log("look through signatures of ",res.data[i])
+        const thisNonce = ethers.BigNumber.from(res.data[i].nonce);
+        if (thisNonce && nonce && thisNonce.gte(nonce)) {
+          const validSignatures = [];
+          for (const s in res.data[i].signatures) {
+            // console.log("RECOVER:",res.data[i].signatures[s],res.data[i].hash)
+            const signer = await readContracts[contractName].recover(res.data[i].hash, res.data[i].signatures[s]);
+            const isOwner = await readContracts[contractName].isOwner(signer);
+            if (signer && isOwner) {
+              validSignatures.push({ signer, signature: res.data[i].signatures[s] });
+            }
+          }
+          const update = { ...res.data[i], validSignatures };
+          // console.log("update",update)
+          newTransactions.push(update);
+        }
+	@@ -113,11 +124,11 @@ export default function Transactions({
+          return (
+            <TransactionListItem item={item} mainnetProvider={mainnetProvider} blockExplorer={blockExplorer} price={price} readContracts={readContracts} contractName={contractName}>
+              <span>
+                {item.signatures.length}/{signaturesRequired.toNumber()} {hasSigned ? "✅" : ""}
+              </span>
+              <Button
+                onClick={async () => {
+                  console.log("item.signatures", item.signatures);
+
+                  const newHash = await readContracts[contractName].getTransactionHash(
+                    item.nonce,
+	@@ -126,8 +137,8 @@ export default function Transactions({
+                    item.data,
+                  );
+                  console.log("newHash", newHash);
+
+                  const signature = await userProvider.send("personal_sign", [newHash, address]);
+                  console.log("signature", signature);
+
+                  const recover = await readContracts[contractName].recover(newHash, signature);
+	@@ -138,17 +149,22 @@ export default function Transactions({
+
+                  if (isOwner) {
+                    const [finalSigList, finalSigners] = await getSortedSigList(
+                      [...item.signatures, signature],
+                      newHash,
+                    );
+                    const res = await axios.post(poolServerUrl, {
+                      ...item,
+                      signatures: finalSigList,
+                      signers: finalSigners,
+                    });
+                  }
+
+                  // tx( writeContracts[contractName].executeTransaction(item.to,parseEther(""+parseFloat(item.amount).toFixed(12)), item.data, item.signatures))
+                }}
+                type="secondary"
+              >
+	@@ -167,9 +183,9 @@ export default function Transactions({
+                  );
+                  console.log("newHash", newHash);
+
+                  console.log("item.signatures", item.signatures);
+
+                  const [finalSigList, finalSigners] = await getSortedSigList(item.signatures, newHash);
+
+                  tx(
+                    writeContracts[contractName].executeTransaction(
+	@@ -190,4 +206,4 @@ export default function Transactions({
+      />
+    </div>
+  );
+} */
